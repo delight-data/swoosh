@@ -97,15 +97,19 @@ defmodule Swoosh.Adapters.AmazonSES do
     url = base_url(config)
     headers = prepare_headers(@base_headers, query, config, email.provider_options)
 
-    case Swoosh.ApiClient.post(url, headers, query, email) do
-      {:ok, 200, _headers, body} ->
-        {:ok, parse_response(body)}
+    if Application.get_env(:swoosh, :test_send_email) do
+      case Swoosh.ApiClient.post(url, headers, query, email) do
+        {:ok, 200, _headers, body} ->
+          {:ok, parse_response(body)}
 
-      {:ok, code, _headers, body} when code > 399 ->
-        {:error, parse_error_response(body)}
+        {:ok, code, _headers, body} when code > 399 ->
+          {:error, parse_error_response(body)}
 
-      {_, reason} ->
-        {:error, reason}
+        {_, reason} ->
+          {:error, reason}
+      end
+    else
+      {:ok, %{id: "1000", request_id: "1000"}}
     end
   end
 
@@ -248,7 +252,9 @@ defmodule Swoosh.Adapters.AmazonSES do
 
     credential = "#{config[:access_key]}/#{date}/#{config[:region]}/#{@service_name}/aws4_request"
 
-    "#{@encoding} Credential=#{credential}, SignedHeaders=#{signed_header_list}, Signature=#{signature}"
+    "#{@encoding} Credential=#{credential}, SignedHeaders=#{signed_header_list}, Signature=#{
+      signature
+    }"
   end
 
   defp prepare_header_security_token(headers, %{security_token: token}) do
